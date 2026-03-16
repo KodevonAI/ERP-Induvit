@@ -17,6 +17,20 @@ import { HttpExceptionFilter } from '../src/common/filters/http-exception.filter
 
 const server = express();
 
+// CORS a nivel Express — garantiza headers en CUALQUIER request incluyendo OPTIONS preflight
+// antes de que NestJS procese nada (crítico para Vercel serverless)
+server.use((req: any, res: any, next: any) => {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type,Authorization,Accept');
+  res.setHeader('Access-Control-Max-Age', '86400');
+  if (req.method === 'OPTIONS') {
+    res.status(204).end();
+    return;
+  }
+  next();
+});
+
 let isInitialized = false;
 
 async function bootstrap() {
