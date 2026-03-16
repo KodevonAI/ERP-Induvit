@@ -72,13 +72,15 @@ export class FacturaItemDto {
 }
 
 export class CreateFacturaDto {
-  @ApiProperty({ example: 'FAC-2025-002' })
+  @ApiPropertyOptional({ example: 'FAC-2025-002' })
+  @IsOptional()
   @IsString()
-  id: string;
+  id?: string;
 
-  @ApiProperty({ example: 2 })
+  @ApiPropertyOptional({ example: 2 })
+  @IsOptional()
   @IsInt()
-  numero: number;
+  numero?: number;
 
   @ApiPropertyOptional()
   @IsOptional()

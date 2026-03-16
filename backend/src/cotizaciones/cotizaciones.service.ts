@@ -45,9 +45,11 @@ export class CotizacionesService {
   }
 
   async create(dto: CreateCotizacionDto) {
-    const { items, fecha, vigencia, ...rest } = dto;
+    const { items, fecha, vigencia, id: providedId, ...rest } = dto;
+    const id = providedId ?? await this.generateId();
     return this.prisma.cotizacion.create({
       data: {
+        id,
         ...rest,
         fecha: fecha ? new Date(fecha) : undefined,
         vigencia: vigencia ? new Date(vigencia) : undefined,
@@ -55,6 +57,17 @@ export class CotizacionesService {
       },
       include: INCLUDE_FULL,
     });
+  }
+
+  private async generateId(): Promise<string> {
+    const year = new Date().getFullYear();
+    const prefix = `COT-${year}-`;
+    const last = await this.prisma.cotizacion.findFirst({
+      where: { id: { startsWith: prefix } },
+      orderBy: { id: 'desc' },
+    });
+    const seq = last ? parseInt(last.id.split('-')[2] ?? '0') + 1 : 1;
+    return `${prefix}${String(seq).padStart(3, '0')}`;
   }
 
   async update(id: string, dto: UpdateCotizacionDto) {

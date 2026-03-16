@@ -48,10 +48,14 @@ export class PedidosService {
   }
 
   async create(dto: CreatePedidoDto) {
-    const { items, fecha, fechaEntregaEstimada, ...rest } = dto;
+    const { items, fecha, fechaEntregaEstimada, id: providedId, numero: providedNumero, ...rest } = dto;
+    const id = providedId ?? await this.generateId();
+    const numero = providedNumero ?? await this.generateNumero();
 
     return this.prisma.pedido.create({
       data: {
+        id,
+        numero,
         ...rest,
         fecha: fecha ? new Date(fecha) : undefined,
         fechaEntregaEstimada: fechaEntregaEstimada ? new Date(fechaEntregaEstimada) : undefined,
@@ -104,6 +108,22 @@ export class PedidosService {
       },
       include: INCLUDE_FULL,
     });
+  }
+
+  private async generateId(): Promise<string> {
+    const year = new Date().getFullYear();
+    const prefix = `PF-${year}-`;
+    const last = await this.prisma.pedido.findFirst({
+      where: { id: { startsWith: prefix } },
+      orderBy: { id: 'desc' },
+    });
+    const seq = last ? parseInt(last.id.split('-')[2] ?? '0') + 1 : 1;
+    return `${prefix}${String(seq).padStart(3, '0')}`;
+  }
+
+  private async generateNumero(): Promise<number> {
+    const last = await this.prisma.pedido.findFirst({ orderBy: { numero: 'desc' } });
+    return (last?.numero ?? 0) + 1;
   }
 
   async updateEtapa(pedidoId: string, itemId: string, etapaKey: string, completado: boolean) {

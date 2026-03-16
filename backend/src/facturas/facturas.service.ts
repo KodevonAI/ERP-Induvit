@@ -40,15 +40,14 @@ export class FacturasService {
   }
 
   async create(dto: CreateFacturaDto) {
-    const existe = await this.prisma.factura.findUnique({ where: { id: dto.id } });
-    if (existe) throw new ConflictException(`Factura ${dto.id} ya existe`);
+    const { items, fecha, fechaVencimiento, id: providedId, numero: providedNumero, ...rest } = dto;
+    const id = providedId ?? await this.generateId();
+    const numero = providedNumero ?? await this.generateNumero();
 
-    const numeroExiste = await this.prisma.factura.findUnique({ where: { numero: dto.numero } });
-    if (numeroExiste) throw new ConflictException(`El número de factura ${dto.numero} ya está en uso`);
-
-    const { items, fecha, fechaVencimiento, ...rest } = dto;
     return this.prisma.factura.create({
       data: {
+        id,
+        numero,
         ...rest,
         fecha: fecha ? new Date(fecha) : undefined,
         fechaVencimiento: fechaVencimiento ? new Date(fechaVencimiento) : undefined,
@@ -56,6 +55,22 @@ export class FacturasService {
       },
       include: INCLUDE_FULL,
     });
+  }
+
+  private async generateId(): Promise<string> {
+    const year = new Date().getFullYear();
+    const prefix = `FAC-${year}-`;
+    const last = await this.prisma.factura.findFirst({
+      where: { id: { startsWith: prefix } },
+      orderBy: { id: 'desc' },
+    });
+    const seq = last ? parseInt(last.id.split('-')[2] ?? '0') + 1 : 1;
+    return `${prefix}${String(seq).padStart(3, '0')}`;
+  }
+
+  private async generateNumero(): Promise<number> {
+    const last = await this.prisma.factura.findFirst({ orderBy: { numero: 'desc' } });
+    return (last?.numero ?? 0) + 1;
   }
 
   async update(id: string, dto: UpdateFacturaDto) {

@@ -72,9 +72,10 @@ export class CotizacionItemDto {
 }
 
 export class CreateCotizacionDto {
-  @ApiProperty({ example: 'COT-2025-002' })
+  @ApiPropertyOptional({ example: 'COT-2025-002' })
+  @IsOptional()
   @IsString()
-  id: string;
+  id?: string;
 
   @ApiPropertyOptional()
   @IsOptional()
