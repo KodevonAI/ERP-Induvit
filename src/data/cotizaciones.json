@@ -1,0 +1,149 @@
+[
+  {
+    "id": "COT-2024-001",
+    "fecha": "2024-11-05",
+    "vigencia": "2024-12-05",
+    "clienteId": "C001",
+    "vendedor": "Santiago Ramírez",
+    "estado": "aprobada",
+    "condicionesPago": "30 días",
+    "plazoEntrega": "15 días hábiles",
+    "observaciones": "Cliente requiere entrega en obra en horario de 7am-4pm. Coordinar con residente de obra Sr. Gustavo Pérez al 310 555 0101.",
+    "items": [
+      {
+        "id": "i1",
+        "productoId": "P002",
+        "descripcion": "Vidrio Templado 6mm para fachada principal",
+        "ancho": 1.2,
+        "alto": 2.4,
+        "area": 2.88,
+        "cantidad": 20,
+        "unidad": "m2",
+        "precioUnitario": 125000,
+        "descuento": 5,
+        "iva": 19
+      },
+      {
+        "id": "i2",
+        "productoId": "P014",
+        "descripcion": "Servicio de corte y biselado de bordes",
+        "ancho": null,
+        "alto": null,
+        "area": null,
+        "cantidad": 40,
+        "unidad": "ml",
+        "precioUnitario": 25000,
+        "descuento": 0,
+        "iva": 19
+      }
+    ],
+    "facturaId": "FAC-2024-001"
+  },
+  {
+    "id": "COT-2024-002",
+    "fecha": "2024-11-12",
+    "vigencia": "2024-12-12",
+    "clienteId": "C003",
+    "vendedor": "María Fernanda Ríos",
+    "estado": "enviada",
+    "condicionesPago": "50% anticipo, 50% contra entrega",
+    "plazoEntrega": "20 días hábiles",
+    "observaciones": "Proyecto Torre Empresarial Valle. Requieren muestras de color antes de confirmar pedido.",
+    "items": [
+      {
+        "id": "i1",
+        "productoId": "P007",
+        "descripcion": "Vidrio Reflectivo Bronce 6mm - Fachada sur y norte",
+        "ancho": 1.5,
+        "alto": 3.0,
+        "area": 4.5,
+        "cantidad": 45,
+        "unidad": "m2",
+        "precioUnitario": 148000,
+        "descuento": 8,
+        "iva": 19
+      },
+      {
+        "id": "i2",
+        "productoId": "P015",
+        "descripcion": "Servicio de instalación en fachada",
+        "ancho": null,
+        "alto": null,
+        "area": null,
+        "cantidad": 32,
+        "unidad": "hora",
+        "precioUnitario": 85000,
+        "descuento": 0,
+        "iva": 19
+      }
+    ],
+    "facturaId": null
+  },
+  {
+    "id": "COT-2024-003",
+    "fecha": "2024-11-18",
+    "vigencia": "2024-12-18",
+    "clienteId": "C005",
+    "vendedor": "Santiago Ramírez",
+    "estado": "borrador",
+    "condicionesPago": "Contado",
+    "plazoEntrega": "10 días hábiles",
+    "observaciones": "Proyecto Apartamentos Parque 85. Pisos 8 al 15.",
+    "items": [
+      {
+        "id": "i1",
+        "productoId": "P013",
+        "descripcion": "Ventana termopanel doble vidrio - Apartamentos tipo A",
+        "ancho": 1.8,
+        "alto": 1.4,
+        "area": 2.52,
+        "cantidad": 56,
+        "unidad": "m2",
+        "precioUnitario": 320000,
+        "descuento": 10,
+        "iva": 19
+      },
+      {
+        "id": "i2",
+        "productoId": "P012",
+        "descripcion": "Sistema de ducha vidrio templado premium - Baños principales",
+        "ancho": null,
+        "alto": null,
+        "area": null,
+        "cantidad": 56,
+        "unidad": "unidad",
+        "precioUnitario": 1850000,
+        "descuento": 10,
+        "iva": 19
+      }
+    ],
+    "facturaId": null
+  },
+  {
+    "id": "COT-2024-004",
+    "fecha": "2024-11-20",
+    "vigencia": "2024-12-20",
+    "clienteId": "C002",
+    "vendedor": "María Fernanda Ríos",
+    "estado": "rechazada",
+    "condicionesPago": "60 días",
+    "plazoEntrega": "8 días hábiles",
+    "observaciones": "Cliente solicitó precio muy por debajo del mercado. No fue posible llegar a acuerdo.",
+    "items": [
+      {
+        "id": "i1",
+        "productoId": "P009",
+        "descripcion": "Vidrio Float 4mm - Vidriería general",
+        "ancho": 1.0,
+        "alto": 1.5,
+        "area": 1.5,
+        "cantidad": 200,
+        "unidad": "m2",
+        "precioUnitario": 42000,
+        "descuento": 0,
+        "iva": 19
+      }
+    ],
+    "facturaId": null
+  }
+]

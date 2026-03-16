@@ -1,0 +1,62 @@
+[
+  {
+    "id": "C001",
+    "razonSocial": "Constructora Andina S.A.S.",
+    "nit": "900.123.456-7",
+    "email": "compras@constructoraandina.com",
+    "telefono": "601 234 5678",
+    "ciudad": "Bogotá",
+    "departamento": "Cundinamarca",
+    "direccion": "Cra 15 # 93-47 Of. 501",
+    "contacto": "Carlos Mendoza",
+    "regimen": "Responsable de IVA"
+  },
+  {
+    "id": "C002",
+    "razonSocial": "Vidriera del Norte Ltda.",
+    "nit": "800.987.654-3",
+    "email": "gerencia@vidrieranorte.com",
+    "telefono": "604 321 8765",
+    "ciudad": "Medellín",
+    "departamento": "Antioquia",
+    "direccion": "Cll 50 # 46-30 Piso 2",
+    "contacto": "Andrea López",
+    "regimen": "Responsable de IVA"
+  },
+  {
+    "id": "C003",
+    "razonSocial": "Proyectos Arquitectónicos del Valle S.A.",
+    "nit": "805.456.789-1",
+    "email": "licitaciones@provalle.com.co",
+    "telefono": "602 456 7890",
+    "ciudad": "Cali",
+    "departamento": "Valle del Cauca",
+    "direccion": "Av. 6N # 25-32",
+    "contacto": "Luis Fernando Castillo",
+    "regimen": "Responsable de IVA"
+  },
+  {
+    "id": "C004",
+    "razonSocial": "Decoraciones Modernas del Caribe S.A.S.",
+    "nit": "900.654.321-9",
+    "email": "pedidos@decomoderna.co",
+    "telefono": "605 789 0123",
+    "ciudad": "Barranquilla",
+    "departamento": "Atlántico",
+    "direccion": "Cra 46 # 72-135 L-8",
+    "contacto": "Patricia Herrera",
+    "regimen": "No responsable de IVA"
+  },
+  {
+    "id": "C005",
+    "razonSocial": "Inmobiliaria Torres del Parque S.A.",
+    "nit": "860.123.789-4",
+    "email": "obras@torresdelparque.com",
+    "telefono": "601 890 2345",
+    "ciudad": "Bogotá",
+    "departamento": "Cundinamarca",
+    "direccion": "Cll 85 # 11-54 Of. 1201",
+    "contacto": "Hernando Torres",
+    "regimen": "Responsable de IVA"
+  }
+]

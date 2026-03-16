@@ -1,0 +1,88 @@
+[
+  {
+    "id": "PF-2024-001",
+    "numero": "PF-2024-001",
+    "fecha": "2024-11-11",
+    "fechaEntregaEstimada": "2024-11-29",
+    "facturaId": "FAC-2024-001",
+    "clienteId": "C001",
+    "estado": "en_proceso",
+    "responsable": "Javier Morales",
+    "observacionesProduccion": "Prioridad alta. Cliente constructora Andina necesita entrega antes del 30 de noviembre. Verificar medidas con planos de obra antes de iniciar corte.",
+    "procesos": {
+      "corte_esp": true, "corte_col": false, "corte_dim": true, "corte_cant": true,
+      "trazabilidad": false,
+      "filete_va": false, "filete_gu": false, "filete_otros": false, "filete_acab": false,
+      "rectilinea": false,
+      "pulpo": false,
+      "marcado": false,
+      "perforado_diam": false, "perforado_pos": false,
+      "taladro_diam": false,
+      "cajeado": false,
+      "lavado": true,
+      "temple_esp": true, "temple_col": false, "temple_acab": true, "temple_sello": false, "temple_dim": false,
+      "entrega": false,
+      "otros_procesos": false
+    },
+    "items": [
+      {
+        "id": "i1",
+        "productoId": "P002",
+        "descripcion": "Vidrio Templado 6mm para fachada principal",
+        "ancho": 1.2,
+        "alto": 2.4,
+        "area": 2.88,
+        "cantidad": 20,
+        "unidad": "m2",
+        "estadoItem": "en_proceso",
+        "notasTecnicas": "Bordes pulidos 4 lados. Plantilla aprobada por cliente.",
+        "etapas": {
+          "corte":    { "completado": true,  "fechaFin": "2024-11-12" },
+          "templado": { "completado": false, "fechaFin": null },
+          "despacho": { "completado": false, "fechaFin": null }
+        },
+        "op": {
+          "color": "INC",
+          "dt": "P1",
+          "per": 0,
+          "des": 2,
+          "boq": 0,
+          "borde_a": 2,
+          "borde_h": 2,
+          "cha_a": 0,
+          "cha_h": 0,
+          "cc": 0
+        }
+      },
+      {
+        "id": "i2",
+        "productoId": "P014",
+        "descripcion": "Servicio de corte y biselado de bordes",
+        "ancho": null,
+        "alto": null,
+        "area": null,
+        "cantidad": 40,
+        "unidad": "ml",
+        "estadoItem": "pendiente",
+        "notasTecnicas": "Bisel de 10mm en todos los bordes expuestos.",
+        "etapas": {
+          "corte":    { "completado": false, "fechaFin": null },
+          "templado": { "completado": false, "fechaFin": null },
+          "despacho": { "completado": false, "fechaFin": null }
+        },
+        "op": {
+          "color": null,
+          "dt": "NP",
+          "per": 0,
+          "des": 0,
+          "boq": 0,
+          "borde_a": 0,
+          "borde_h": 0,
+          "cha_a": 0,
+          "cha_h": 0,
+          "cc": 0
+        }
+      }
+    ]
+  }
+]

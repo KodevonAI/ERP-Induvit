@@ -1,0 +1,44 @@
+[
+  {
+    "id": "FAC-2024-001",
+    "numero": "FAC-2024-001",
+    "fecha": "2024-11-10",
+    "fechaVencimiento": "2024-12-10",
+    "clienteId": "C001",
+    "cotizacionId": "COT-2024-001",
+    "vendedor": "Santiago Ramírez",
+    "condicionesPago": "30 días",
+    "observaciones": "Factura electrónica generada conforme a resolución DIAN 000042. Entrega coordinada con obra.",
+    "estadoDian": "aceptada",
+    "cufe": "a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4",
+    "items": [
+      {
+        "id": "i1",
+        "productoId": "P002",
+        "descripcion": "Vidrio Templado 6mm para fachada principal",
+        "ancho": 1.2,
+        "alto": 2.4,
+        "area": 2.88,
+        "cantidad": 20,
+        "unidad": "m2",
+        "precioUnitario": 125000,
+        "descuento": 5,
+        "iva": 19
+      },
+      {
+        "id": "i2",
+        "productoId": "P014",
+        "descripcion": "Servicio de corte y biselado de bordes",
+        "ancho": null,
+        "alto": null,
+        "area": null,
+        "cantidad": 40,
+        "unidad": "ml",
+        "precioUnitario": 25000,
+        "descuento": 0,
+        "iva": 19
+      }
+    ],
+    "pedidoId": "PF-2024-001"
+  }
+]
