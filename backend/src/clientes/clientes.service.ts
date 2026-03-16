@@ -12,9 +12,7 @@ export class ClientesService {
   constructor(private prisma: PrismaService) {}
 
   async findAll(search?: string, activo?: boolean) {
-    const where: any = {};
-
-    if (activo !== undefined) where.activo = activo;
+    const where: any = { activo: activo ?? true }; // por defecto solo activos
 
     if (search) {
       where.OR = [
