@@ -10,13 +10,12 @@ import { ValidationPipe } from '@nestjs/common';
 import { ExpressAdapter } from '@nestjs/platform-express';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import helmet from 'helmet';
-// eslint-disable-next-line @typescript-eslint/no-var-requires
-const expressFactory = require('express');
+import express from 'express';
 import { AppModule } from '../src/app.module';
 import { TransformInterceptor } from '../src/common/interceptors/transform.interceptor';
 import { HttpExceptionFilter } from '../src/common/filters/http-exception.filter';
 
-const server = expressFactory();
+const server = express();
 
 let isInitialized = false;
 
@@ -37,8 +36,15 @@ async function bootstrap() {
     }),
   );
 
+  // CORS — soporta: '*' | 'https://a.com,https://b.com' | no definido (permite todo)
+  const rawOrigin = process.env.CORS_ORIGIN;
+  const corsOrigin: boolean | string[] =
+    !rawOrigin || rawOrigin === '*'
+      ? true
+      : rawOrigin.split(',').map((s) => s.trim());
+
   app.enableCors({
-    origin: process.env.CORS_ORIGIN || '*',
+    origin: corsOrigin,
     credentials: true,
   });
 
