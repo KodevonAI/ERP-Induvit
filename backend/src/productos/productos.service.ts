@@ -42,7 +42,17 @@ export class ProductosService {
     const codigoExiste = await this.prisma.producto.findUnique({ where: { codigo: dto.codigo } });
     if (codigoExiste) throw new ConflictException(`El código "${dto.codigo}" ya existe`);
 
-    return this.prisma.producto.create({ data: dto });
+    const id = dto.id ?? await this.generateId();
+    return this.prisma.producto.create({ data: { ...dto, id } });
+  }
+
+  private async generateId(): Promise<string> {
+    const last = await this.prisma.producto.findFirst({
+      where: { id: { startsWith: 'P' } },
+      orderBy: { id: 'desc' },
+    });
+    const seq = last ? parseInt(last.id.replace(/\D/g, '')) + 1 : 1;
+    return `P${String(seq).padStart(3, '0')}`;
   }
 
   async update(id: string, dto: UpdateProductoDto) {

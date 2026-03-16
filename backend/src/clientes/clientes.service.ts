@@ -41,7 +41,17 @@ export class ClientesService {
     const nitExiste = await this.prisma.cliente.findUnique({ where: { nit: dto.nit } });
     if (nitExiste) throw new ConflictException(`El NIT "${dto.nit}" ya está registrado`);
 
-    return this.prisma.cliente.create({ data: dto });
+    const id = dto.id ?? await this.generateId();
+    return this.prisma.cliente.create({ data: { ...dto, id } });
+  }
+
+  private async generateId(): Promise<string> {
+    const last = await this.prisma.cliente.findFirst({
+      where: { id: { startsWith: 'C' } },
+      orderBy: { id: 'desc' },
+    });
+    const seq = last ? parseInt(last.id.replace(/\D/g, '')) + 1 : 1;
+    return `C${String(seq).padStart(3, '0')}`;
   }
 
   async update(id: string, dto: UpdateClienteDto) {
