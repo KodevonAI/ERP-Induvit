@@ -1,5 +1,5 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { StoreProvider } from './store/useStore.jsx';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider, useAuth } from './store/AuthContext.jsx';
 import Layout from './components/layout/Layout';
 
@@ -17,6 +17,15 @@ import Produccion from './pages/produccion/Produccion';
 import Clientes from './pages/Clientes';
 import Productos from './pages/Productos';
 import Configuracion from './pages/Configuracion';
+
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 30_000,
+      retry: 1,
+    },
+  },
+});
 
 function ProtectedApp() {
   const { session } = useAuth();
@@ -47,12 +56,12 @@ function ProtectedApp() {
 
 export default function App() {
   return (
-    <AuthProvider>
-      <StoreProvider>
+    <QueryClientProvider client={queryClient}>
+      <AuthProvider>
         <BrowserRouter>
           <ProtectedApp />
         </BrowserRouter>
-      </StoreProvider>
-    </AuthProvider>
+      </AuthProvider>
+    </QueryClientProvider>
   );
 }

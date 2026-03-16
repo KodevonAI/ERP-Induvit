@@ -1,10 +1,9 @@
 import { useState } from 'react';
 import { useAuth } from '../store/AuthContext';
-import { useStore } from '../store/useStore';
 import Header from '../components/layout/Header';
 import {
   User, Lock, Building2, ShieldCheck, Save,
-  CheckCircle, AlertCircle, LogOut, RotateCcw, Info
+  CheckCircle, AlertCircle, LogOut, Info
 } from 'lucide-react';
 
 function Section({ title, icon: Icon, children }) {
@@ -55,10 +54,17 @@ function Toast({ type, message, onClose }) {
 
 export default function Configuracion() {
   const { profile, updateProfile, session, logout } = useAuth();
-  const { dispatch } = useStore();
 
   // Perfil
-  const [perfil, setPerfil] = useState({ ...profile });
+  const [perfil, setPerfil] = useState({
+    nombre: profile?.nombre || '',
+    cargo: profile?.cargo || '',
+    email: profile?.email || '',
+    telefono: profile?.telefono || '',
+    empresa: profile?.empresa || 'INDUSVIT S.A.S.',
+    nitEmpresa: profile?.nitEmpresa || '900.123.456-7',
+    direccionEmpresa: profile?.direccionEmpresa || 'Cali, Valle del Cauca',
+  });
   const [perfilDirty, setPerfilDirty] = useState(false);
 
   // Contraseña
@@ -78,18 +84,18 @@ export default function Configuracion() {
     setPerfilDirty(true);
   }
 
-  function savePerfil() {
-    updateProfile(perfil);
-    setPerfilDirty(false);
-    showToast('success', 'Perfil actualizado correctamente.');
+  async function savePerfil() {
+    try {
+      await updateProfile(perfil);
+      setPerfilDirty(false);
+      showToast('success', 'Perfil actualizado correctamente.');
+    } catch {
+      showToast('error', 'Error al actualizar el perfil.');
+    }
   }
 
   function savePassword() {
-    const { actual, nueva, confirmar } = passForm;
-    if (actual !== 'indusvit123') {
-      showToast('error', 'La contraseña actual es incorrecta.');
-      return;
-    }
+    const { nueva, confirmar } = passForm;
     if (nueva.length < 6) {
       showToast('error', 'La nueva contraseña debe tener al menos 6 caracteres.');
       return;
@@ -102,15 +108,7 @@ export default function Configuracion() {
     showToast('success', 'Contraseña actualizada (modo demo).');
   }
 
-  function resetDemo() {
-    if (!window.confirm('¿Restablecer todos los datos de demo? Esto borrará cambios locales.')) return;
-    dispatch({ type: 'RESET' });
-    showToast('success', 'Datos de demo restablecidos correctamente.');
-  }
-
-  const loginDate = session?.loginAt
-    ? new Date(session.loginAt).toLocaleString('es-CO', { dateStyle: 'medium', timeStyle: 'short' })
-    : '-';
+  const username = session?.user?.username ?? session?.username ?? '-';
 
   return (
     <div className="flex flex-col flex-1">
@@ -153,7 +151,7 @@ export default function Configuracion() {
               <Field label="Usuario (no editable)">
                 <InputField
                   type="text"
-                  value={session?.username || ''}
+                  value={username}
                   disabled
                   className="bg-gray-50 text-gray-400 cursor-not-allowed"
                 />
@@ -257,11 +255,11 @@ export default function Configuracion() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
               <div>
                 <p className="text-xs text-gray-400 mb-0.5">Usuario conectado</p>
-                <p className="font-medium text-gray-700">{session?.username}</p>
+                <p className="font-medium text-gray-700">{username}</p>
               </div>
               <div>
-                <p className="text-xs text-gray-400 mb-0.5">Inicio de sesión</p>
-                <p className="font-medium text-gray-700">{loginDate}</p>
+                <p className="text-xs text-gray-400 mb-0.5">Rol</p>
+                <p className="font-medium text-gray-700">{session?.user?.role ?? 'admin'}</p>
               </div>
             </div>
             <div className="flex flex-wrap gap-3 mt-5">
@@ -270,12 +268,6 @@ export default function Configuracion() {
                 className="flex items-center gap-2 px-4 py-2 border border-gray-200 text-gray-600 text-sm rounded-lg hover:bg-gray-50 transition-colors"
               >
                 <LogOut size={14} /> Cerrar sesión
-              </button>
-              <button
-                onClick={resetDemo}
-                className="flex items-center gap-2 px-4 py-2 border border-amber-200 text-amber-600 text-sm rounded-lg hover:bg-amber-50 transition-colors"
-              >
-                <RotateCcw size={14} /> Restablecer datos demo
               </button>
             </div>
           </Section>

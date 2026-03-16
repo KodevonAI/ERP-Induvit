@@ -1,28 +1,31 @@
-import { useStore } from '../../store/useStore';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useFacturas } from '../../hooks/useFacturas';
+import { useClientes } from '../../hooks/useClientes';
 import { formatCurrency, calcTotales, formatDate } from '../../utils/formatters';
 import Header from '../../components/layout/Header';
 import Badge from '../../components/ui/Badge';
 import { Search, Receipt } from 'lucide-react';
-import { useState } from 'react';
 
 export default function ListaFacturas() {
-  const { state } = useStore();
   const navigate = useNavigate();
   const [search, setSearch] = useState('');
   const [filtro, setFiltro] = useState('todos');
 
-  const filtered = state.facturas
+  const { data: facturas = [] } = useFacturas();
+  const { data: clientes = [] } = useClientes();
+
+  const filtered = facturas
     .filter(f => {
-      const cliente = state.clientes.find(c => c.id === f.clienteId);
+      const cliente = clientes.find(c => c.id === f.clienteId);
       const q = search.toLowerCase();
       const matchSearch =
-        f.id.toLowerCase().includes(q) ||
-        (cliente?.razonSocial.toLowerCase().includes(q));
+        (f.id ?? '').toLowerCase().includes(q) ||
+        (cliente?.razonSocial ?? '').toLowerCase().includes(q);
       const matchFiltro = filtro === 'todos' || f.estadoDian === filtro;
       return matchSearch && matchFiltro;
     })
-    .sort((a, b) => b.fecha.localeCompare(a.fecha));
+    .sort((a, b) => (b.fecha ?? '').localeCompare(a.fecha ?? ''));
 
   return (
     <div className="flex flex-col flex-1">
@@ -79,8 +82,8 @@ export default function ListaFacturas() {
                   </tr>
                 ) : (
                   filtered.map(fac => {
-                    const cliente = state.clientes.find(c => c.id === fac.clienteId);
-                    const totales = calcTotales(fac.items);
+                    const cliente = clientes.find(c => c.id === fac.clienteId);
+                    const totales = calcTotales(fac.items ?? []);
                     return (
                       <tr
                         key={fac.id}

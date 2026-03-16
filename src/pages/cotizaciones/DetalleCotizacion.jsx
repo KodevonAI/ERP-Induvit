@@ -1,48 +1,52 @@
 import { useParams, useNavigate } from 'react-router-dom';
-import { useStore } from '../../store/useStore';
+import { useCotizacion, useUpdateCotizacion } from '../../hooks/useCotizaciones';
+import { useClientes } from '../../hooks/useClientes';
+import { useProductos } from '../../hooks/useProductos';
+import { useCreateFactura } from '../../hooks/useFacturas';
 import { formatCurrency, calcTotales, calcItemSubtotal, calcItemIva, formatDate } from '../../utils/formatters';
 import Header from '../../components/layout/Header';
 import Badge from '../../components/ui/Badge';
 import { ArrowLeft, Receipt, CheckCircle, XCircle, Send } from 'lucide-react';
-import { nextId } from '../../utils/formatters';
 
 export default function DetalleCotizacion() {
   const { id } = useParams();
-  const { state, dispatch } = useStore();
   const navigate = useNavigate();
 
-  const cot = state.cotizaciones.find(c => c.id === id);
+  const { data: cot, isLoading } = useCotizacion(id);
+  const { data: clientes = [] } = useClientes();
+  const { data: productos = [] } = useProductos();
+  const updateCotizacion = useUpdateCotizacion();
+  const createFactura = useCreateFactura();
+
+  if (isLoading) return <div className="p-8 text-gray-400">Cargando...</div>;
   if (!cot) return <div className="p-8 text-gray-400">Cotización no encontrada.</div>;
 
-  const cliente = state.clientes.find(c => c.id === cot.clienteId);
-  const totales = calcTotales(cot.items, cot.descuento || 0);
+  const cliente = clientes.find(c => c.id === cot.clienteId);
+  const totales = calcTotales(cot.items ?? [], cot.descuento || 0);
 
   function cambiarEstado(nuevoEstado) {
-    dispatch({ type: 'UPDATE_COTIZACION', payload: { ...cot, estado: nuevoEstado } });
+    updateCotizacion.mutate({ id: cot.id, estado: nuevoEstado });
   }
 
-  function generarFactura() {
-    const factId = nextId(state.facturas, 'FAC');
+  async function generarFactura() {
     const hoy = new Date().toISOString().split('T')[0];
     const venc = new Date(); venc.setDate(venc.getDate() + 30);
-    const factura = {
-      id: factId,
-      numero: factId,
-      fecha: hoy,
-      fechaVencimiento: venc.toISOString().split('T')[0],
-      clienteId: cot.clienteId,
-      cotizacionId: cot.id,
-      vendedor: cot.vendedor,
-      condicionesPago: cot.condicionesPago,
-      observaciones: cot.observaciones,
-      estadoDian: 'pendiente',
-      cufe: null,
-      items: cot.items,
-      pedidoId: null,
-    };
-    dispatch({ type: 'ADD_FACTURA', payload: factura });
-    dispatch({ type: 'UPDATE_COTIZACION', payload: { ...cot, facturaId: factId, estado: 'aprobada' } });
-    navigate(`/facturas/${factId}`);
+    try {
+      const factura = await createFactura.mutateAsync({
+        clienteId: cot.clienteId,
+        cotizacionId: cot.id,
+        vendedor: cot.vendedor,
+        fecha: hoy,
+        fechaVencimiento: venc.toISOString().split('T')[0],
+        condicionesPago: cot.condicionesPago,
+        observaciones: cot.observaciones,
+        items: (cot.items ?? []).map(({ id: _id, cotizacionId: _cId, ...rest }) => rest),
+      });
+      updateCotizacion.mutate({ id: cot.id, estado: 'aprobada' });
+      navigate(`/facturas/${factura.id}`);
+    } catch (err) {
+      console.error('Error al generar factura:', err);
+    }
   }
 
   return (
@@ -85,19 +89,20 @@ export default function DetalleCotizacion() {
                 </button>
                 <button
                   onClick={generarFactura}
-                  className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white text-sm rounded-lg hover:bg-emerald-700"
+                  disabled={createFactura.isPending}
+                  className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white text-sm rounded-lg hover:bg-emerald-700 disabled:opacity-50"
                 >
-                  <CheckCircle size={15} /> Aprobar y facturar
+                  <CheckCircle size={15} /> {createFactura.isPending ? 'Generando...' : 'Aprobar y facturar'}
                 </button>
               </>
             )}
 
-            {cot.estado === 'aprobada' && cot.facturaId && (
+            {cot.estado === 'aprobada' && cot.facturas && cot.facturas.length > 0 && (
               <button
-                onClick={() => navigate(`/facturas/${cot.facturaId}`)}
+                onClick={() => navigate(`/facturas/${cot.facturas[0].id}`)}
                 className="flex items-center gap-2 px-4 py-2 bg-brand-600 text-white text-sm rounded-lg hover:bg-brand-700"
               >
-                <Receipt size={15} /> Ver factura {cot.facturaId}
+                <Receipt size={15} /> Ver factura
               </button>
             )}
           </div>
@@ -144,10 +149,10 @@ export default function DetalleCotizacion() {
                     </tr>
                   </thead>
                   <tbody>
-                    {cot.items.map(item => {
+                    {(cot.items ?? []).map(item => {
                       const sub = calcItemSubtotal(item);
                       const iva = calcItemIva(item);
-                      const prod = state.productos.find(p => p.id === item.productoId);
+                      const prod = productos.find(p => p.id === item.productoId);
                       return (
                         <tr key={item.id} className="border-b border-gray-50">
                           <td className="px-5 py-3">

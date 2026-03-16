@@ -1,21 +1,7 @@
-import { createContext, useContext, useState, useEffect } from 'react';
+import { createContext, useContext, useState } from 'react';
+import api from '../services/api';
 
 const AUTH_KEY = 'indusvit_auth';
-
-const CREDENTIALS = {
-  username: 'indusvit.admin',
-  password: 'indusvit123',
-};
-
-const DEFAULT_PROFILE = {
-  nombre: 'Santiago Ramírez',
-  cargo: 'Administrador del Sistema',
-  email: 'admin@indusvit.com',
-  telefono: '601 000 0000',
-  empresa: 'Indusvit S.A.S.',
-  nitEmpresa: '900.000.001-1',
-  direccionEmpresa: 'Cll 13 # 31-41, Bogotá',
-};
 
 function loadAuth() {
   try {
@@ -29,42 +15,40 @@ const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
   const [session, setSession] = useState(loadAuth);
-  // profile se guarda separado para poder editarlo sin re-login
-  const [profile, setProfile] = useState(() => {
-    try {
-      const s = localStorage.getItem('indusvit_profile');
-      return s ? JSON.parse(s) : DEFAULT_PROFILE;
-    } catch { return DEFAULT_PROFILE; }
-  });
 
-  useEffect(() => {
-    if (session) localStorage.setItem(AUTH_KEY, JSON.stringify(session));
-    else localStorage.removeItem(AUTH_KEY);
-  }, [session]);
-
-  useEffect(() => {
-    localStorage.setItem('indusvit_profile', JSON.stringify(profile));
-  }, [profile]);
-
-  function login(username, password) {
-    if (username === CREDENTIALS.username && password === CREDENTIALS.password) {
-      const s = { username, loginAt: new Date().toISOString() };
-      setSession(s);
-      return true;
-    }
-    return false;
+  async function login(username, password) {
+    const res = await api.post('/auth/login', { username, password });
+    const { token, user } = res.data.data;
+    const s = { token, user };
+    localStorage.setItem(AUTH_KEY, JSON.stringify(s));
+    setSession(s);
+    return true;
   }
 
   function logout() {
+    localStorage.removeItem(AUTH_KEY);
     setSession(null);
   }
 
-  function updateProfile(data) {
-    setProfile(p => ({ ...p, ...data }));
+  async function updateProfile(data) {
+    const res = await api.put('/auth/profile', data);
+    const updated = res.data.data;
+    setSession((prev) => ({
+      ...prev,
+      user: { ...prev.user, ...updated },
+    }));
+    return updated;
   }
 
+  async function changePassword(currentPassword, newPassword) {
+    await api.put('/auth/password', { currentPassword, newPassword });
+  }
+
+  // profile expone los datos del usuario para compatibilidad con páginas existentes
+  const profile = session?.user ?? null;
+
   return (
-    <AuthContext.Provider value={{ session, profile, login, logout, updateProfile }}>
+    <AuthContext.Provider value={{ session, profile, login, logout, updateProfile, changePassword }}>
       {children}
     </AuthContext.Provider>
   );

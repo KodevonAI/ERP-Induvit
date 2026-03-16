@@ -1,6 +1,8 @@
 import { useParams, useNavigate } from 'react-router-dom';
-import { useState } from 'react';
-import { useStore } from '../../store/useStore';
+import { useState, useEffect } from 'react';
+import { usePedido, useUpdatePedido } from '../../hooks/usePedidos';
+import { useClientes } from '../../hooks/useClientes';
+import { useProductos } from '../../hooks/useProductos';
 import { formatDate } from '../../utils/formatters';
 import { Printer, ArrowLeft, Save, CheckCircle } from 'lucide-react';
 
@@ -67,33 +69,44 @@ function calcPeso(item, esp) {
 // ─────────────────────────────────────────────────────────────────────────────
 export default function OrdenProduccion() {
   const { id } = useParams();
-  const { state, dispatch } = useStore();
   const navigate = useNavigate();
 
-  const pedido = state.pedidos.find(p => p.id === id);
+  const { data: pedido, isLoading: pedLoading } = usePedido(id);
+  const { data: clientes = [] } = useClientes();
+  const { data: productos = [], isLoading: prodLoading } = useProductos();
+  const updatePedido = useUpdatePedido();
+
+  const [procesos, setProcesos] = useState(DEFAULT_PROCESOS);
+  const [itemsOp,  setItemsOp]  = useState({});
+  const [saved,    setSaved]    = useState(false);
+  const [initialized, setInitialized] = useState(false);
+
+  useEffect(() => {
+    if (!pedLoading && !prodLoading && pedido && !initialized) {
+      setProcesos({ ...DEFAULT_PROCESOS, ...(pedido.procesos || {}) });
+      setItemsOp(Object.fromEntries(
+        pedido.items.map(item => {
+          const prod = productos.find(p => p.id === item.productoId);
+          return [item.id, { ...defaultOp(prod), ...(item.op || {}) }];
+        })
+      ));
+      setInitialized(true);
+    }
+  }, [pedLoading, prodLoading, pedido, productos, initialized]);
+
+  if (pedLoading || prodLoading || !initialized) return <div className="p-8 text-gray-400">Cargando...</div>;
   if (!pedido) return <div className="p-8 text-gray-400">Pedido no encontrado.</div>;
 
-  const cliente = state.clientes.find(c => c.id === pedido.clienteId);
-
-  const initProcesos = { ...DEFAULT_PROCESOS, ...(pedido.procesos || {}) };
-  const initItemsOp  = Object.fromEntries(
-    pedido.items.map(item => {
-      const prod = state.productos.find(p => p.id === item.productoId);
-      return [item.id, { ...defaultOp(prod), ...(item.op || {}) }];
-    })
-  );
-
-  const [procesos, setProcesos] = useState(initProcesos);
-  const [itemsOp,  setItemsOp]  = useState(initItemsOp);
-  const [saved,    setSaved]    = useState(false);
+  const cliente = clientes.find(c => c.id === pedido.clienteId);
 
   function toggleProceso(key) { setSaved(false); setProcesos(p => ({ ...p, [key]: !p[key] })); }
   function setOp(itemId, field, value) { setSaved(false); setItemsOp(p => ({ ...p, [itemId]: { ...p[itemId], [field]: value } })); }
 
   function guardar() {
     const items = pedido.items.map(it => ({ ...it, op: itemsOp[it.id] || it.op }));
-    dispatch({ type: 'UPDATE_PEDIDO', payload: { ...pedido, procesos, items } });
-    setSaved(true);
+    updatePedido.mutate({ id: pedido.id, procesos, items }, {
+      onSuccess: () => setSaved(true),
+    });
   }
 
   const hora = new Date().toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' });
@@ -101,12 +114,12 @@ export default function OrdenProduccion() {
   const opNum   = `${opParts[0]}-${opParts[1] || '001'}`;
 
   const glassItems = pedido.items.filter(item => {
-    const prod = state.productos.find(p => p.id === item.productoId);
+    const prod = productos.find(p => p.id === item.productoId);
     return prod?.espesor || (parseFloat(item.ancho) > 0 && parseFloat(item.alto) > 0);
   });
 
   const rows = glassItems.map((item, i) => {
-    const prod  = state.productos.find(p => p.id === item.productoId);
+    const prod  = productos.find(p => p.id === item.productoId);
     const op    = itemsOp[item.id] || defaultOp(prod);
     const esp   = prod?.espesor ?? 0;
     return { item, prod, op, esp, num: i + 1,
@@ -175,15 +188,16 @@ export default function OrdenProduccion() {
             </button>
 
             <button onClick={guardar}
+              disabled={updatePedido.isPending}
               style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '7px 16px',
                 background: saved ? '#f0fdf4' : 'white',
                 border: `1px solid ${saved ? '#86efac' : '#e2e8f0'}`,
                 borderRadius: '8px', fontSize: '13px',
                 color: saved ? '#166534' : '#374151',
                 cursor: 'pointer', fontFamily: 'inherit', boxShadow: '0 1px 3px rgba(0,0,0,.06)',
-                transition: 'all .2s' }}>
+                transition: 'all .2s', opacity: updatePedido.isPending ? 0.5 : 1 }}>
               {saved ? <CheckCircle size={14} /> : <Save size={14} />}
-              <span>{saved ? 'Guardado' : 'Guardar'}</span>
+              <span>{updatePedido.isPending ? 'Guardando...' : saved ? 'Guardado' : 'Guardar'}</span>
             </button>
 
             <button onClick={() => window.print()}

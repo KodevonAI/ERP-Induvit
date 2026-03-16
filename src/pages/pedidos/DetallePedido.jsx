@@ -1,52 +1,56 @@
 import { useParams, useNavigate } from 'react-router-dom';
 import { useState } from 'react';
-import { useStore } from '../../store/useStore';
+import { usePedido, useUpdatePedido, useUpdateEtapa } from '../../hooks/usePedidos';
+import { useClientes } from '../../hooks/useClientes';
+import { useProductos } from '../../hooks/useProductos';
 import { formatDate } from '../../utils/formatters';
 import Header from '../../components/layout/Header';
 import Badge from '../../components/ui/Badge';
-import { ArrowLeft, Receipt, CheckCircle2, Circle, Clock, Play, Save, Scissors, Flame, Truck, Printer } from 'lucide-react';
+import { ArrowLeft, Receipt, CheckCircle2, Circle, Clock, Play, Save, Printer } from 'lucide-react';
 import { ETAPAS, emptyEtapas, getEtapaActualIdx, derivarEstadoItem } from '../produccion/Produccion';
 
 export default function DetallePedido() {
   const { id } = useParams();
-  const { state, dispatch } = useStore();
   const navigate = useNavigate();
 
-  const pedido = state.pedidos.find(p => p.id === id);
-  const [notas, setNotas] = useState(pedido?.observacionesProduccion || '');
-  const [itemNotas, setItemNotas] = useState(
-    pedido ? Object.fromEntries(pedido.items.map(it => [it.id, it.notasTecnicas || ''])) : {}
-  );
+  const { data: pedido, isLoading } = usePedido(id);
+  const { data: clientes = [] } = useClientes();
+  const { data: productos = [] } = useProductos();
+  const updatePedido = useUpdatePedido();
+  const updateEtapa = useUpdateEtapa();
 
+  const [notas, setNotas] = useState('');
+  const [itemNotas, setItemNotas] = useState({});
+  const [notasLoaded, setNotasLoaded] = useState(false);
+
+  if (isLoading) return <div className="p-8 text-gray-400">Cargando...</div>;
   if (!pedido) return <div className="p-8 text-gray-400">Pedido no encontrado.</div>;
 
-  const cliente = state.clientes.find(c => c.id === pedido.clienteId);
+  if (!notasLoaded) {
+    setNotas(pedido.observacionesProduccion || '');
+    setItemNotas(Object.fromEntries((pedido.items ?? []).map(it => [it.id, it.notasTecnicas || ''])));
+    setNotasLoaded(true);
+  }
+
+  const cliente = clientes.find(c => c.id === pedido.clienteId);
 
   function cambiarEstado(nuevoEstado) {
-    dispatch({ type: 'UPDATE_PEDIDO', payload: { ...pedido, estado: nuevoEstado, observacionesProduccion: notas } });
+    updatePedido.mutate({ id: pedido.id, estado: nuevoEstado, observacionesProduccion: notas });
   }
 
   function completarEtapa(itemId, etapaKey) {
-    const hoy = new Date().toISOString().split('T')[0];
-    const items = pedido.items.map(it => {
-      if (it.id !== itemId) return it;
-      const etapas = {
-        ...(it.etapas || emptyEtapas()),
-        [etapaKey]: { completado: true, fechaFin: hoy },
-      };
-      const notaActual = itemNotas[itemId] ?? it.notasTecnicas;
-      return { ...it, etapas, estadoItem: derivarEstadoItem(etapas), notasTecnicas: notaActual };
-    });
-    const todosDone = items.every(it => derivarEstadoItem(it.etapas) === 'completado');
-    dispatch({ type: 'UPDATE_PEDIDO', payload: { ...pedido, items, estado: todosDone ? 'completado' : pedido.estado } });
+    updateEtapa.mutate({ pedidoId: pedido.id, itemId, etapa: etapaKey });
   }
 
   function guardarNotas() {
-    const items = pedido.items.map(it => ({
-      ...it,
-      notasTecnicas: itemNotas[it.id] ?? it.notasTecnicas,
-    }));
-    dispatch({ type: 'UPDATE_PEDIDO', payload: { ...pedido, observacionesProduccion: notas, items } });
+    updatePedido.mutate({
+      id: pedido.id,
+      observacionesProduccion: notas,
+      items: (pedido.items ?? []).map(it => ({
+        id: it.id,
+        notasTecnicas: itemNotas[it.id] ?? it.notasTecnicas,
+      })),
+    });
   }
 
   const colorMap = {
@@ -120,7 +124,7 @@ export default function DetallePedido() {
             <div className="bg-white rounded-xl border border-gray-100 p-6">
               <h3 className="font-semibold text-gray-700 mb-4">Información del pedido</h3>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-y-4 gap-x-8 text-sm">
-                <InfoRow label="N° Pedido" value={pedido.numero} />
+                <InfoRow label="N° Pedido" value={pedido.id} />
                 <InfoRow label="Factura origen" value={pedido.facturaId} />
                 <InfoRow label="Fecha de creación" value={formatDate(pedido.fecha)} />
                 <InfoRow label="Entrega estimada" value={formatDate(pedido.fechaEntregaEstimada)} />
@@ -136,11 +140,11 @@ export default function DetallePedido() {
                 <p className="text-xs text-gray-400 mt-0.5">Marque cada etapa al completarla: Corte → Templado → Despacho</p>
               </div>
               <div className="p-4 space-y-3">
-                {pedido.items.map(item => {
+                {(pedido.items ?? []).map(item => {
                   const etapas = item.etapas || emptyEtapas();
                   const etapaActualIdx = getEtapaActualIdx(etapas);
                   const estadoItem = derivarEstadoItem(etapas);
-                  const prod = state.productos.find(p => p.id === item.productoId);
+                  const prod = productos.find(p => p.id === item.productoId);
 
                   return (
                     <div
@@ -198,7 +202,8 @@ export default function DetallePedido() {
                                 ) : isCurrent ? (
                                   <button
                                     onClick={() => completarEtapa(item.id, etapa.key)}
-                                    className={`text-[10px] px-2.5 py-1 rounded text-white font-medium ${c.btn} transition-colors`}
+                                    disabled={updateEtapa.isPending}
+                                    className={`text-[10px] px-2.5 py-1 rounded text-white font-medium ${c.btn} transition-colors disabled:opacity-50`}
                                   >
                                     ✓ Completar
                                   </button>
@@ -216,7 +221,7 @@ export default function DetallePedido() {
                         <label className="block text-xs font-medium text-gray-400 mb-1">Notas técnicas</label>
                         <textarea
                           rows={2}
-                          value={itemNotas[item.id] ?? item.notasTecnicas}
+                          value={itemNotas[item.id] ?? item.notasTecnicas ?? ''}
                           onChange={e => setItemNotas(prev => ({ ...prev, [item.id]: e.target.value }))}
                           placeholder="Instrucciones especiales, acabados, tolerancias..."
                           className="w-full border border-gray-200 rounded-lg px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-brand-500 resize-none bg-white"
@@ -240,9 +245,10 @@ export default function DetallePedido() {
               />
               <button
                 onClick={guardarNotas}
-                className="mt-3 flex items-center gap-2 px-4 py-2 border border-gray-200 text-gray-600 text-sm rounded-lg hover:bg-gray-50"
+                disabled={updatePedido.isPending}
+                className="mt-3 flex items-center gap-2 px-4 py-2 border border-gray-200 text-gray-600 text-sm rounded-lg hover:bg-gray-50 disabled:opacity-50"
               >
-                <Save size={14} /> Guardar notas
+                <Save size={14} /> {updatePedido.isPending ? 'Guardando...' : 'Guardar notas'}
               </button>
             </div>
 
@@ -264,7 +270,7 @@ export default function DetallePedido() {
             <div className="bg-white rounded-xl border border-gray-100 p-5">
               <h3 className="font-semibold text-gray-700 mb-3">Progreso de fabricación</h3>
               <div className="space-y-3">
-                {pedido.items.map(item => {
+                {(pedido.items ?? []).map(item => {
                   const etapas = item.etapas || emptyEtapas();
                   const etapaActualIdx = getEtapaActualIdx(etapas);
                   const completadas = ETAPAS.filter(e => etapas[e.key]?.completado).length;
@@ -299,12 +305,12 @@ export default function DetallePedido() {
               <div className="mt-4 pt-3 border-t border-gray-50">
                 <div className="flex justify-between text-xs text-gray-400 mb-1.5">
                   <span>Ítems completados</span>
-                  <span>{pedido.items.filter(it => derivarEstadoItem(it.etapas) === 'completado').length}/{pedido.items.length}</span>
+                  <span>{(pedido.items ?? []).filter(it => derivarEstadoItem(it.etapas) === 'completado').length}/{(pedido.items ?? []).length}</span>
                 </div>
                 <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
                   <div
                     className="h-full bg-emerald-500 rounded-full transition-all"
-                    style={{ width: `${(pedido.items.filter(it => derivarEstadoItem(it.etapas) === 'completado').length / pedido.items.length) * 100}%` }}
+                    style={{ width: `${((pedido.items ?? []).filter(it => derivarEstadoItem(it.etapas) === 'completado').length / Math.max((pedido.items ?? []).length, 1)) * 100}%` }}
                   />
                 </div>
               </div>
@@ -317,11 +323,11 @@ export default function DetallePedido() {
                 {ETAPAS.map((etapa, i) => {
                   const EtapaIcon = etapa.icon;
                   const c = colorMap[etapa.color];
-                  const itemsEnEtapa = pedido.items.filter(it => {
+                  const itemsEnEtapa = (pedido.items ?? []).filter(it => {
                     const e = it.etapas || emptyEtapas();
                     return !e[etapa.key]?.completado && getEtapaActualIdx(e) === i;
                   }).length;
-                  const itemsDone = pedido.items.filter(it => (it.etapas || emptyEtapas())[etapa.key]?.completado).length;
+                  const itemsDone = (pedido.items ?? []).filter(it => (it.etapas || emptyEtapas())[etapa.key]?.completado).length;
                   return (
                     <div key={etapa.key} className="flex items-center gap-3">
                       <div className={`p-1.5 rounded-lg ${c.bg}`}>
@@ -331,7 +337,7 @@ export default function DetallePedido() {
                         <p className="text-xs font-medium text-gray-600">{i + 1}. {etapa.label}</p>
                       </div>
                       <div className="text-right">
-                        <span className="text-xs text-gray-400">{itemsDone}/{pedido.items.length}</span>
+                        <span className="text-xs text-gray-400">{itemsDone}/{(pedido.items ?? []).length}</span>
                         {itemsEnEtapa > 0 && (
                           <span className={`ml-1.5 text-[10px] ${c.bg} ${c.text} px-1.5 py-0.5 rounded-full font-medium`}>activo</span>
                         )}

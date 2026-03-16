@@ -15,9 +15,15 @@ async function bootstrap() {
   // Seguridad HTTP
   app.use(helmet());
 
-  // CORS
+  // CORS — soporta: '*' | 'https://a.com,https://b.com' | no definido (permite todo)
+  const rawOrigin = process.env.CORS_ORIGIN;
+  const corsOrigin: boolean | string[] =
+    !rawOrigin || rawOrigin === '*'
+      ? true
+      : rawOrigin.split(',').map((s) => s.trim());
+
   app.enableCors({
-    origin: process.env.CORS_ORIGIN || 'http://localhost:5173',
+    origin: corsOrigin,
     credentials: true,
   });
 

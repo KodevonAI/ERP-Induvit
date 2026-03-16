@@ -1,7 +1,9 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useStore } from '../../store/useStore';
-import { calcItemSubtotal, calcItemIva, calcTotales, formatCurrency, nextId } from '../../utils/formatters';
+import { useClientes } from '../../hooks/useClientes';
+import { useProductos } from '../../hooks/useProductos';
+import { useCreateCotizacion } from '../../hooks/useCotizaciones';
+import { calcItemSubtotal, calcItemIva, calcTotales, formatCurrency } from '../../utils/formatters';
 import Header from '../../components/layout/Header';
 import { Plus, Trash2, ArrowLeft, Save, Send } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
@@ -30,13 +32,15 @@ function emptyItem(productos) {
 }
 
 export default function NuevaCotizacion() {
-  const { state, dispatch } = useStore();
   const navigate = useNavigate();
-  const productos = state.productos.filter(p => p.activo);
-  const clientes = state.clientes;
+  const { data: clientes = [] } = useClientes();
+  const { data: productosAll = [] } = useProductos();
+  const createCotizacion = useCreateCotizacion();
+
+  const productos = productosAll.filter(p => p.activo);
 
   const [form, setForm] = useState({
-    clienteId: clientes[0]?.id || '',
+    clienteId: '',
     vendedor: 'Santiago Ramírez',
     fecha: today(),
     vigencia: addDays(today(), 30),
@@ -44,10 +48,17 @@ export default function NuevaCotizacion() {
     plazoEntrega: '15 días hábiles',
     observaciones: '',
     descuento: 0,
-    items: [emptyItem(productos)],
+    items: [],
   });
 
-  const [saving, setSaving] = useState(false);
+  // Inicializar items una vez que los productos estén disponibles
+  const [itemsInitialized, setItemsInitialized] = useState(false);
+  if (!itemsInitialized && productos.length > 0) {
+    setForm(f => ({ ...f, clienteId: clientes[0]?.id || '', items: [emptyItem(productos)] }));
+    setItemsInitialized(true);
+  }
+
+  const [saveError, setSaveError] = useState('');
 
   function setField(key, val) {
     setForm(f => ({ ...f, [key]: val }));
@@ -102,25 +113,32 @@ export default function NuevaCotizacion() {
   }
 
   async function guardar(estado) {
-    setSaving(true);
-    const id = nextId(state.cotizaciones, 'COT');
-    const cotizacion = {
-      id, fecha: form.fecha, vigencia: form.vigencia, clienteId: form.clienteId,
-      vendedor: form.vendedor, estado, condicionesPago: form.condicionesPago,
-      plazoEntrega: form.plazoEntrega, observaciones: form.observaciones,
+    setSaveError('');
+    const payload = {
+      clienteId: form.clienteId,
+      vendedor: form.vendedor,
+      fecha: form.fecha,
+      vigencia: form.vigencia,
+      condicionesPago: form.condicionesPago,
+      plazoEntrega: form.plazoEntrega,
+      observaciones: form.observaciones,
       descuento: parseNum(form.descuento),
-      items: getComputedItems(), facturaId: null,
+      estado,
+      items: getComputedItems().map(({ id, ...rest }) => rest),
     };
-    dispatch({ type: 'ADD_COTIZACION', payload: cotizacion });
-    await new Promise(r => setTimeout(r, 400));
-    setSaving(false);
-    navigate(`/cotizaciones/${id}`);
+    try {
+      const cotizacion = await createCotizacion.mutateAsync(payload);
+      navigate(`/cotizaciones/${cotizacion.id}`);
+    } catch (err) {
+      setSaveError(err.response?.data?.message ?? 'Error al guardar la cotización');
+    }
   }
 
   const computedItems = getComputedItems();
   const totales = calcTotales(computedItems, parseNum(form.descuento));
   const condPago = ['Contado', '15 días', '30 días', '45 días', '60 días', '50% anticipo, 50% contra entrega'];
   const plazos = ['5 días hábiles', '8 días hábiles', '10 días hábiles', '15 días hábiles', '20 días hábiles', '30 días hábiles'];
+  const saving = createCotizacion.isPending;
 
   return (
     <div className="flex flex-col flex-1">
@@ -362,6 +380,10 @@ export default function NuevaCotizacion() {
             className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 resize-none"
           />
         </div>
+
+        {saveError && (
+          <div className="bg-red-50 border border-red-200 rounded-lg px-4 py-3 text-sm text-red-600">{saveError}</div>
+        )}
 
         {/* Acciones */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">

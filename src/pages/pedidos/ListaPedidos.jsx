@@ -1,28 +1,31 @@
-import { useStore } from '../../store/useStore';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { usePedidos } from '../../hooks/usePedidos';
+import { useClientes } from '../../hooks/useClientes';
 import { formatDate } from '../../utils/formatters';
 import Header from '../../components/layout/Header';
 import Badge from '../../components/ui/Badge';
 import { Search, ClipboardList } from 'lucide-react';
-import { useState } from 'react';
 
 export default function ListaPedidos() {
-  const { state } = useStore();
   const navigate = useNavigate();
   const [search, setSearch] = useState('');
   const [filtro, setFiltro] = useState('todos');
 
-  const filtered = state.pedidos
+  const { data: pedidos = [] } = usePedidos();
+  const { data: clientes = [] } = useClientes();
+
+  const filtered = pedidos
     .filter(p => {
-      const cliente = state.clientes.find(c => c.id === p.clienteId);
+      const cliente = clientes.find(c => c.id === p.clienteId);
       const q = search.toLowerCase();
       const matchSearch =
-        p.id.toLowerCase().includes(q) ||
-        (cliente?.razonSocial.toLowerCase().includes(q));
+        (p.id ?? '').toLowerCase().includes(q) ||
+        (cliente?.razonSocial ?? '').toLowerCase().includes(q);
       const matchFiltro = filtro === 'todos' || p.estado === filtro;
       return matchSearch && matchFiltro;
     })
-    .sort((a, b) => b.fecha.localeCompare(a.fecha));
+    .sort((a, b) => (b.fecha ?? '').localeCompare(a.fecha ?? ''));
 
   return (
     <div className="flex flex-col flex-1">
@@ -79,7 +82,7 @@ export default function ListaPedidos() {
                   </tr>
                 ) : (
                   filtered.map(p => {
-                    const cliente = state.clientes.find(c => c.id === p.clienteId);
+                    const cliente = clientes.find(c => c.id === p.clienteId);
                     return (
                       <tr
                         key={p.id}

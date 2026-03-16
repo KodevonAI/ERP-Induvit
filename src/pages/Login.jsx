@@ -15,12 +15,13 @@ export default function Login() {
     if (!username.trim() || !password.trim()) return;
     setLoading(true);
     setError('');
-    await new Promise(r => setTimeout(r, 800)); // simular latencia
-    const ok = login(username.trim(), password);
-    if (!ok) {
-      setError('Usuario o contraseña incorrectos.');
+    try {
+      await login(username.trim(), password);
+    } catch (err) {
+      setError(err?.response?.data?.message ?? 'Usuario o contraseña incorrectos.');
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   }
 
   return (

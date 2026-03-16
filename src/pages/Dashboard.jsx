@@ -1,9 +1,12 @@
-import { useStore } from '../store/useStore';
 import { useNavigate } from 'react-router-dom';
+import { useCotizaciones } from '../hooks/useCotizaciones';
+import { useFacturas } from '../hooks/useFacturas';
+import { usePedidos } from '../hooks/usePedidos';
+import { useClientes } from '../hooks/useClientes';
 import { formatCurrency, calcTotales, formatDate } from '../utils/formatters';
 import Header from '../components/layout/Header';
 import Badge from '../components/ui/Badge';
-import { ETAPAS, emptyEtapas, getEtapaActualIdx, derivarEstadoItem } from './produccion/Produccion';
+import { ETAPAS, emptyEtapas, getEtapaActualIdx } from './produccion/Produccion';
 import {
   FileText, Receipt, TrendingUp,
   ArrowRight, AlertCircle, CheckCircle, Clock,
@@ -33,32 +36,35 @@ const etapaColorMap = {
 };
 
 export default function Dashboard() {
-  const { state } = useStore();
   const navigate = useNavigate();
 
+  const { data: cotizaciones = [] } = useCotizaciones();
+  const { data: facturas = [] } = useFacturas();
+  const { data: pedidos = [] } = usePedidos();
+  const { data: clientes = [] } = useClientes();
+
   const cotsPorEstado = {
-    borrador:  state.cotizaciones.filter(c => c.estado === 'borrador').length,
-    enviada:   state.cotizaciones.filter(c => c.estado === 'enviada').length,
-    aprobada:  state.cotizaciones.filter(c => c.estado === 'aprobada').length,
-    rechazada: state.cotizaciones.filter(c => c.estado === 'rechazada').length,
+    borrador:  cotizaciones.filter(c => c.estado === 'borrador').length,
+    enviada:   cotizaciones.filter(c => c.estado === 'enviada').length,
+    aprobada:  cotizaciones.filter(c => c.estado === 'aprobada').length,
+    rechazada: cotizaciones.filter(c => c.estado === 'rechazada').length,
   };
 
-  const facturasAceptadas = state.facturas.filter(f => f.estadoDian === 'aceptada');
-  const facturasPendientes = state.facturas.filter(f => f.estadoDian === 'pendiente');
+  const facturasAceptadas = facturas.filter(f => f.estadoDian === 'aceptada');
+  const facturasPendientes = facturas.filter(f => f.estadoDian === 'pendiente');
 
   const totalFacturado = facturasAceptadas.reduce((sum, f) => {
-    const t = calcTotales(f.items, f.descuento || 0);
+    const t = calcTotales(f.items ?? [], f.descuento || 0);
     return sum + t.total;
   }, 0);
 
-  // Producción: recopilar todos los ítems activos con sus etapas
-  const pedidosActivos = state.pedidos.filter(p => p.estado !== 'completado');
+  const pedidosActivos = pedidos.filter(p => p.estado !== 'completado');
   const prodCounters = { corte: 0, templado: 0, despacho: 0, completado: 0, total: 0 };
   const itemsEnProceso = [];
 
   pedidosActivos.forEach(pedido => {
-    const cliente = state.clientes.find(c => c.id === pedido.clienteId);
-    pedido.items.forEach(item => {
+    const cliente = clientes.find(c => c.id === pedido.clienteId);
+    (pedido.items ?? []).forEach(item => {
       const etapas = item.etapas || emptyEtapas();
       const idx = getEtapaActualIdx(etapas);
       prodCounters.total++;
@@ -70,11 +76,11 @@ export default function Dashboard() {
     });
   });
 
-  const recentCots = [...state.cotizaciones]
-    .sort((a, b) => b.fecha.localeCompare(a.fecha))
+  const recentCots = [...cotizaciones]
+    .sort((a, b) => (b.fecha ?? '').localeCompare(a.fecha ?? ''))
     .slice(0, 5);
 
-  const getCliente = (id) => state.clientes.find(c => c.id === id);
+  const getCliente = (id) => clientes.find(c => c.id === id);
 
   return (
     <div className="flex flex-col flex-1">
@@ -130,7 +136,7 @@ export default function Dashboard() {
             <div className="divide-y divide-gray-50">
               {recentCots.map(cot => {
                 const cliente = getCliente(cot.clienteId);
-                const totales = calcTotales(cot.items, cot.descuento || 0);
+                const totales = calcTotales(cot.items ?? [], cot.descuento || 0);
                 return (
                   <div
                     key={cot.id}
@@ -149,6 +155,9 @@ export default function Dashboard() {
                   </div>
                 );
               })}
+              {recentCots.length === 0 && (
+                <div className="px-6 py-8 text-center text-gray-400 text-sm">No hay cotizaciones aún</div>
+              )}
             </div>
           </div>
 
@@ -244,7 +253,7 @@ export default function Dashboard() {
                                 ? <CheckCircle2 size={11} className="text-emerald-600" />
                                 : isCurrent
                                   ? <Clock size={11} className={c.text} />
-                                  : <Circle size={11} className="text-gray-300" />
+                                  : <CircleIcon size={11} className="text-gray-300" />
                               }
                             </div>
                           </div>
@@ -287,7 +296,7 @@ function PipelineItem({ icon: Icon, color, label, count }) {
   );
 }
 
-function Circle({ size, className }) {
+function CircleIcon({ size, className }) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={className}>
       <circle cx="12" cy="12" r="10" />

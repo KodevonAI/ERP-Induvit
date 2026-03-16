@@ -1,37 +1,38 @@
-import { useStore } from '../../store/useStore';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useCotizaciones } from '../../hooks/useCotizaciones';
+import { useClientes } from '../../hooks/useClientes';
 import { formatCurrency, calcTotales, formatDate } from '../../utils/formatters';
 import Header from '../../components/layout/Header';
 import Badge from '../../components/ui/Badge';
 import { Plus, Search, FileText } from 'lucide-react';
-import { useState } from 'react';
 
 export default function ListaCotizaciones() {
-  const { state } = useStore();
   const navigate = useNavigate();
   const [search, setSearch] = useState('');
   const [filtroEstado, setFiltroEstado] = useState('todos');
 
-  const clientes = state.clientes;
+  const { data: cotizaciones = [] } = useCotizaciones();
+  const { data: clientes = [] } = useClientes();
 
-  const filtered = state.cotizaciones
+  const filtered = cotizaciones
     .filter(c => {
       const cliente = clientes.find(cl => cl.id === c.clienteId);
       const q = search.toLowerCase();
       const matchSearch =
-        c.id.toLowerCase().includes(q) ||
-        (cliente?.razonSocial.toLowerCase().includes(q)) ||
-        c.vendedor.toLowerCase().includes(q);
+        (c.id ?? '').toLowerCase().includes(q) ||
+        (cliente?.razonSocial ?? '').toLowerCase().includes(q) ||
+        (c.vendedor ?? '').toLowerCase().includes(q);
       const matchEstado = filtroEstado === 'todos' || c.estado === filtroEstado;
       return matchSearch && matchEstado;
     })
-    .sort((a, b) => b.fecha.localeCompare(a.fecha));
+    .sort((a, b) => (b.fecha ?? '').localeCompare(a.fecha ?? ''));
 
   return (
     <div className="flex flex-col flex-1">
       <Header
         title="Cotizaciones"
-        subtitle={`${state.cotizaciones.length} cotizaciones registradas`}
+        subtitle={`${cotizaciones.length} cotizaciones registradas`}
       />
 
       <div className="flex-1 p-4 md:p-8">
@@ -95,7 +96,7 @@ export default function ListaCotizaciones() {
                 ) : (
                   filtered.map(cot => {
                     const cliente = clientes.find(c => c.id === cot.clienteId);
-                    const totales = calcTotales(cot.items);
+                    const totales = calcTotales(cot.items ?? []);
                     return (
                       <tr
                         key={cot.id}

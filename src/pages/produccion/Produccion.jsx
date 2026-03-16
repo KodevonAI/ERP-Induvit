@@ -1,4 +1,6 @@
-import { useStore } from '../../store/useStore';
+import { usePedidos, useUpdateEtapa } from '../../hooks/usePedidos';
+import { useClientes } from '../../hooks/useClientes';
+import { useProductos } from '../../hooks/useProductos';
 import { useNavigate } from 'react-router-dom';
 import { formatDate } from '../../utils/formatters';
 import Header from '../../components/layout/Header';
@@ -40,10 +42,13 @@ const colorMap = {
 };
 
 export default function Produccion() {
-  const { state, dispatch } = useStore();
+  const { data: pedidos = [], isLoading } = usePedidos();
+  const { data: clientes = [] } = useClientes();
+  const { data: productos = [] } = useProductos();
   const navigate = useNavigate();
+  const updateEtapa = useUpdateEtapa();
 
-  const pedidosActivos = state.pedidos.filter(p => p.estado !== 'completado');
+  const pedidosActivos = pedidos.filter(p => p.estado !== 'completado');
 
   // Contadores por etapa
   const counters = { corte: 0, templado: 0, despacho: 0, completado: 0, total: 0 };
@@ -57,16 +62,10 @@ export default function Produccion() {
   });
 
   function completarEtapa(pedidoId, itemId, etapaKey) {
-    const pedido = state.pedidos.find(p => p.id === pedidoId);
-    const hoy = new Date().toISOString().split('T')[0];
-    const items = pedido.items.map(it => {
-      if (it.id !== itemId) return it;
-      const etapas = { ...(it.etapas || emptyEtapas()), [etapaKey]: { completado: true, fechaFin: hoy } };
-      return { ...it, etapas, estadoItem: derivarEstadoItem(etapas) };
-    });
-    const todosDone = items.every(it => derivarEstadoItem(it.etapas) === 'completado');
-    dispatch({ type: 'UPDATE_PEDIDO', payload: { ...pedido, items, estado: todosDone ? 'completado' : pedido.estado } });
+    updateEtapa.mutate({ pedidoId, itemId, etapa: etapaKey });
   }
+
+  if (isLoading) return <div className="p-8 text-center text-gray-400">Cargando producción...</div>;
 
   return (
     <div className="flex flex-col flex-1">
@@ -152,7 +151,7 @@ export default function Produccion() {
           </div>
         ) : (
           pedidosActivos.map(pedido => {
-            const cliente = state.clientes.find(c => c.id === pedido.clienteId);
+            const cliente = clientes.find(c => c.id === pedido.clienteId);
             const completadosCount = pedido.items.filter(it => derivarEstadoItem(it.etapas) === 'completado').length;
             return (
               <div key={pedido.id} className="bg-white rounded-xl border border-gray-100 overflow-hidden">
@@ -185,7 +184,7 @@ export default function Produccion() {
                   {pedido.items.map(item => {
                     const etapas = item.etapas || emptyEtapas();
                     const etapaActualIdx = getEtapaActualIdx(etapas);
-                    const prod = state.productos.find(p => p.id === item.productoId);
+                    const prod = productos.find(p => p.id === item.productoId);
                     const done = etapaActualIdx === ETAPAS.length;
 
                     return (
@@ -242,7 +241,8 @@ export default function Produccion() {
                                     ) : isCurrent ? (
                                       <button
                                         onClick={() => completarEtapa(pedido.id, item.id, etapa.key)}
-                                        className={`text-[10px] px-2.5 py-0.5 rounded text-white font-medium ${c.btn} transition-colors`}
+                                        disabled={updateEtapa.isPending}
+                                        className={`text-[10px] px-2.5 py-0.5 rounded text-white font-medium ${c.btn} transition-colors disabled:opacity-50`}
                                       >
                                         Completar
                                       </button>

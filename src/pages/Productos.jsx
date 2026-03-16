@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useStore } from '../store/useStore';
+import { useProductos, useCreateProducto, useUpdateProducto, useDeleteProducto, useToggleActivoProducto } from '../hooks/useProductos';
 import { formatCurrency } from '../utils/formatters';
 import Header from '../components/layout/Header';
 import Modal from '../components/ui/Modal';
@@ -15,12 +15,6 @@ const EMPTY_PROD = {
   espesor: '', unidad: 'm2', precioM2: '', precioPieza: '',
   iva: 19, stock: '', activo: true,
 };
-
-function nextProductoId(productos) {
-  const nums = productos.map(p => parseInt(p.id.replace('P', ''), 10)).filter(n => !isNaN(n));
-  const next = nums.length ? Math.max(...nums) + 1 : 1;
-  return `P${String(next).padStart(3, '0')}`;
-}
 
 function Label({ children, required }) {
   return (
@@ -51,7 +45,6 @@ function Select({ children, ...props }) {
 }
 
 export default function Productos() {
-  const { state, dispatch } = useStore();
   const [search, setSearch] = useState('');
   const [cat, setCat] = useState('Todas');
   const [modalOpen, setModalOpen] = useState(false);
@@ -59,10 +52,17 @@ export default function Productos() {
   const [form, setForm] = useState(EMPTY_PROD);
   const [confirmId, setConfirmId] = useState(null);
   const [showInactivos, setShowInactivos] = useState(false);
+  const [saveError, setSaveError] = useState('');
 
-  const filtered = state.productos.filter(p => {
+  const { data: productos = [], isLoading } = useProductos();
+  const createProducto = useCreateProducto();
+  const updateProducto = useUpdateProducto();
+  const deleteProducto = useDeleteProducto();
+  const toggleActivo = useToggleActivoProducto();
+
+  const filtered = productos.filter(p => {
     const q = search.toLowerCase();
-    const matchSearch = p.nombre.toLowerCase().includes(q) || p.codigo.toLowerCase().includes(q);
+    const matchSearch = (p.nombre ?? '').toLowerCase().includes(q) || (p.codigo ?? '').toLowerCase().includes(q);
     const matchCat = cat === 'Todas' || p.categoria === cat;
     const matchActivo = showInactivos ? true : p.activo;
     return matchSearch && matchCat && matchActivo;
@@ -71,6 +71,7 @@ export default function Productos() {
   function openNew() {
     setEditing(null);
     setForm(EMPTY_PROD);
+    setSaveError('');
     setModalOpen(true);
   }
 
@@ -83,6 +84,7 @@ export default function Productos() {
       precioPieza: p.precioPieza ?? '',
       stock: p.stock ?? '',
     });
+    setSaveError('');
     setModalOpen(true);
   }
 
@@ -105,29 +107,40 @@ export default function Productos() {
       stock: parseOrNull(form.stock),
       iva: Number(form.iva),
     };
-    if (editing) {
-      dispatch({ type: 'UPDATE_PRODUCTO', payload: { ...payload, id: editing.id } });
-    } else {
-      dispatch({ type: 'ADD_PRODUCTO', payload: { ...payload, id: nextProductoId(state.productos) } });
-    }
-    setModalOpen(false);
+    setSaveError('');
+    const mutation = editing
+      ? updateProducto.mutateAsync({ id: editing.id, ...payload })
+      : createProducto.mutateAsync(payload);
+    mutation
+      .then(() => setModalOpen(false))
+      .catch(err => setSaveError(err.response?.data?.message ?? 'Error al guardar'));
   }
 
   function handleDelete(id) {
-    dispatch({ type: 'DELETE_PRODUCTO', payload: id });
+    deleteProducto.mutate(id);
   }
 
-  function toggleActivo(p) {
-    dispatch({ type: 'UPDATE_PRODUCTO', payload: { ...p, activo: !p.activo } });
+  function handleToggle(p) {
+    toggleActivo.mutate(p.id);
   }
 
-  const activos = state.productos.filter(p => p.activo).length;
+  const activos = productos.filter(p => p.activo).length;
+  const isSaving = createProducto.isPending || updateProducto.isPending;
+
+  if (isLoading) {
+    return (
+      <div className="flex flex-col flex-1">
+        <Header title="Catálogo de Productos" subtitle="Cargando..." />
+        <div className="flex-1 flex items-center justify-center text-gray-400">Cargando productos...</div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col flex-1">
       <Header
         title="Catálogo de Productos"
-        subtitle={`${activos} productos activos · ${state.productos.length} en total`}
+        subtitle={`${activos} productos activos · ${productos.length} en total`}
       />
 
       <div className="flex-1 p-4 md:p-8">
@@ -231,7 +244,7 @@ export default function Productos() {
                       }
                     </td>
                     <td className="px-4 py-3 text-center">
-                      <button onClick={() => toggleActivo(p)} title={p.activo ? 'Desactivar' : 'Activar'}>
+                      <button onClick={() => handleToggle(p)} title={p.activo ? 'Desactivar' : 'Activar'}>
                         {p.activo
                           ? <span className="text-xs bg-emerald-50 text-emerald-600 px-2 py-0.5 rounded-full font-medium">Activo</span>
                           : <span className="text-xs bg-gray-100 text-gray-400 px-2 py-0.5 rounded-full font-medium">Inactivo</span>
@@ -362,6 +375,10 @@ export default function Productos() {
           </div>
         </div>
 
+        {saveError && (
+          <p className="mt-3 text-sm text-red-500">{saveError}</p>
+        )}
+
         <div className="flex justify-end gap-3 mt-6 pt-5 border-t border-gray-100">
           <button
             onClick={() => setModalOpen(false)}
@@ -371,10 +388,10 @@ export default function Productos() {
           </button>
           <button
             onClick={handleSave}
-            disabled={!form.codigo.trim() || !form.nombre.trim()}
+            disabled={!form.codigo.trim() || !form.nombre.trim() || isSaving}
             className="px-5 py-2 text-sm font-medium text-white bg-brand-600 rounded-lg hover:bg-brand-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
           >
-            {editing ? 'Guardar cambios' : 'Crear producto'}
+            {isSaving ? 'Guardando...' : editing ? 'Guardar cambios' : 'Crear producto'}
           </button>
         </div>
       </Modal>
@@ -383,7 +400,7 @@ export default function Productos() {
       <ConfirmDialog
         open={!!confirmId}
         onClose={() => setConfirmId(null)}
-        onConfirm={() => handleDelete(confirmId)}
+        onConfirm={() => { handleDelete(confirmId); setConfirmId(null); }}
         title="Eliminar producto"
         message="Esta acción no se puede deshacer. El producto será eliminado del catálogo."
       />

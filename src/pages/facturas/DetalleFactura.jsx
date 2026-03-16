@@ -1,9 +1,11 @@
 import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { useStore } from '../../store/useStore';
+import { useFactura, useUpdateFactura } from '../../hooks/useFacturas';
+import { useClientes } from '../../hooks/useClientes';
+import { useProductos } from '../../hooks/useProductos';
+import { useCreatePedido } from '../../hooks/usePedidos';
 import { formatCurrency, calcTotales, calcItemSubtotal, calcItemIva, formatDate } from '../../utils/formatters';
 import { enviarFacturaDian } from '../../utils/dian';
-import { nextId } from '../../utils/formatters';
 import Header from '../../components/layout/Header';
 import Badge from '../../components/ui/Badge';
 import {
@@ -13,18 +15,23 @@ import {
 
 export default function DetalleFactura() {
   const { id } = useParams();
-  const { state, dispatch } = useStore();
   const navigate = useNavigate();
 
-  const fac = state.facturas.find(f => f.id === id);
+  const { data: fac, isLoading } = useFactura(id);
+  const { data: clientes = [] } = useClientes();
+  const { data: productos = [] } = useProductos();
+  const updateFactura = useUpdateFactura();
+  const createPedido = useCreatePedido();
+
   const [enviando, setEnviando] = useState(false);
   const [dianStep, setDianStep] = useState('');
   const [error, setError] = useState('');
 
+  if (isLoading) return <div className="p-8 text-gray-400">Cargando...</div>;
   if (!fac) return <div className="p-8 text-gray-400">Factura no encontrada.</div>;
 
-  const cliente = state.clientes.find(c => c.id === fac.clienteId);
-  const totales = calcTotales(fac.items);
+  const cliente = clientes.find(c => c.id === fac.clienteId);
+  const totales = calcTotales(fac.items ?? []);
 
   const steps = [
     'Conectando con servicio DIAN...',
@@ -38,55 +45,52 @@ export default function DetalleFactura() {
   async function enviarDian() {
     setEnviando(true);
     setError('');
-
     for (const step of steps) {
       setDianStep(step);
       await new Promise(r => setTimeout(r, 700));
     }
-
     try {
       const resp = await enviarFacturaDian(fac);
-      const updated = {
-        ...fac,
+      updateFactura.mutate({
+        id: fac.id,
         estadoDian: 'aceptada',
         cufe: resp.cufe,
         fechaAceptacionDian: resp.fechaAceptacion,
-      };
-      dispatch({ type: 'UPDATE_FACTURA', payload: updated });
+      });
     } catch (e) {
       setError(e.message);
-      dispatch({ type: 'UPDATE_FACTURA', payload: { ...fac, estadoDian: 'error' } });
+      updateFactura.mutate({ id: fac.id, estadoDian: 'error' });
     } finally {
       setEnviando(false);
       setDianStep('');
     }
   }
 
-  function generarPedido() {
-    const pedId = nextId(state.pedidos, 'PF');
+  async function generarPedido() {
     const hoy = new Date();
     const entrega = new Date(); entrega.setDate(hoy.getDate() + 20);
-
-    const pedido = {
-      id: pedId,
-      numero: pedId,
-      fecha: hoy.toISOString().split('T')[0],
-      fechaEntregaEstimada: entrega.toISOString().split('T')[0],
-      facturaId: fac.id,
-      clienteId: fac.clienteId,
-      estado: 'pendiente',
-      responsable: 'Javier Morales',
-      observacionesProduccion: fac.observaciones || '',
-      items: fac.items.map(it => ({
-        ...it,
-        estadoItem: 'pendiente',
-        notasTecnicas: '',
-      })),
-    };
-    dispatch({ type: 'ADD_PEDIDO', payload: pedido });
-    dispatch({ type: 'UPDATE_FACTURA', payload: { ...fac, pedidoId: pedId } });
-    navigate(`/pedidos/${pedId}`);
+    try {
+      const pedido = await createPedido.mutateAsync({
+        facturaId: fac.id,
+        clienteId: fac.clienteId,
+        fecha: hoy.toISOString().split('T')[0],
+        fechaEntregaEstimada: entrega.toISOString().split('T')[0],
+        estado: 'pendiente',
+        responsable: 'Javier Morales',
+        observacionesProduccion: fac.observaciones || '',
+        items: (fac.items ?? []).map(({ id: _id, facturaId: _fId, ...rest }) => ({
+          ...rest,
+          estadoItem: 'pendiente',
+          notasTecnicas: '',
+        })),
+      });
+      navigate(`/pedidos/${pedido.id}`);
+    } catch (err) {
+      console.error('Error al generar pedido:', err);
+    }
   }
+
+  const pedidos = fac.pedidos ?? [];
 
   return (
     <div className="flex flex-col flex-1">
@@ -118,21 +122,22 @@ export default function DetalleFactura() {
               </button>
             )}
 
-            {fac.estadoDian === 'aceptada' && !fac.pedidoId && (
+            {fac.estadoDian === 'aceptada' && pedidos.length === 0 && (
               <button
                 onClick={generarPedido}
-                className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white text-sm font-medium rounded-lg hover:bg-emerald-700"
+                disabled={createPedido.isPending}
+                className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white text-sm font-medium rounded-lg hover:bg-emerald-700 disabled:opacity-50"
               >
-                <ClipboardList size={15} /> Generar pedido de fabricación
+                <ClipboardList size={15} /> {createPedido.isPending ? 'Generando...' : 'Generar pedido de fabricación'}
               </button>
             )}
 
-            {fac.pedidoId && (
+            {pedidos.length > 0 && (
               <button
-                onClick={() => navigate(`/pedidos/${fac.pedidoId}`)}
+                onClick={() => navigate(`/pedidos/${pedidos[0].id}`)}
                 className="flex items-center gap-2 px-4 py-2 border border-emerald-200 text-emerald-700 text-sm rounded-lg hover:bg-emerald-50"
               >
-                <ClipboardList size={15} /> Ver pedido {fac.pedidoId}
+                <ClipboardList size={15} /> Ver pedido {pedidos[0].id}
               </button>
             )}
           </div>
@@ -192,7 +197,7 @@ export default function DetalleFactura() {
             <div className="bg-white rounded-xl border border-gray-100 p-6">
               <h3 className="font-semibold text-gray-700 mb-4">Datos de la factura</h3>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-y-4 gap-x-8 text-sm">
-                <InfoRow label="N° Factura" value={fac.numero} />
+                <InfoRow label="N° Factura" value={fac.id} />
                 <InfoRow label="Cotización origen" value={fac.cotizacionId} />
                 <InfoRow label="Fecha de emisión" value={formatDate(fac.fecha)} />
                 <InfoRow label="Fecha de vencimiento" value={formatDate(fac.fechaVencimiento)} />
@@ -225,10 +230,10 @@ export default function DetalleFactura() {
                     </tr>
                   </thead>
                   <tbody>
-                    {fac.items.map(item => {
+                    {(fac.items ?? []).map(item => {
                       const sub = calcItemSubtotal(item);
                       const iva = calcItemIva(item);
-                      const prod = state.productos.find(p => p.id === item.productoId);
+                      const prod = productos.find(p => p.id === item.productoId);
                       return (
                         <tr key={item.id} className="border-b border-gray-50">
                           <td className="px-5 py-3">

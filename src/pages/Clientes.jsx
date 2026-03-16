@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useStore } from '../store/useStore';
+import { useClientes, useCreateCliente, useUpdateCliente, useDeleteCliente } from '../hooks/useClientes';
 import Header from '../components/layout/Header';
 import Modal from '../components/ui/Modal';
 import ConfirmDialog from '../components/ui/ConfirmDialog';
@@ -13,12 +13,6 @@ const EMPTY = {
 
 const REGIMENES = ['Responsable de IVA', 'No responsable de IVA', 'Gran contribuyente', 'Régimen simple'];
 const DEPARTAMENTOS = ['Antioquia', 'Atlántico', 'Bogotá D.C.', 'Bolívar', 'Boyacá', 'Caldas', 'Caquetá', 'Cauca', 'Cesar', 'Córdoba', 'Cundinamarca', 'Huila', 'La Guajira', 'Magdalena', 'Meta', 'Nariño', 'Norte de Santander', 'Quindío', 'Risaralda', 'Santander', 'Sucre', 'Tolima', 'Valle del Cauca'];
-
-function nextClienteId(clientes) {
-  const nums = clientes.map(c => parseInt(c.id.replace('C', ''), 10)).filter(n => !isNaN(n));
-  const next = nums.length ? Math.max(...nums) + 1 : 1;
-  return `C${String(next).padStart(3, '0')}`;
-}
 
 function Label({ children, required }) {
   return (
@@ -49,27 +43,38 @@ function Select({ children, ...props }) {
 }
 
 export default function Clientes() {
-  const { state, dispatch } = useStore();
   const [search, setSearch] = useState('');
   const [modalOpen, setModalOpen] = useState(false);
-  const [editing, setEditing] = useState(null); // null = nuevo, objeto = editar
+  const [editing, setEditing] = useState(null);
   const [form, setForm] = useState(EMPTY);
   const [confirmId, setConfirmId] = useState(null);
+  const [saveError, setSaveError] = useState('');
 
-  const filtered = state.clientes.filter(c => {
+  const { data: clientes = [], isLoading } = useClientes();
+  const createCliente = useCreateCliente();
+  const updateCliente = useUpdateCliente();
+  const deleteCliente = useDeleteCliente();
+
+  const filtered = clientes.filter(c => {
     const q = search.toLowerCase();
-    return c.razonSocial.toLowerCase().includes(q) || c.nit.includes(q) || c.ciudad.toLowerCase().includes(q);
+    return (
+      (c.razonSocial ?? '').toLowerCase().includes(q) ||
+      (c.nit ?? '').includes(q) ||
+      (c.ciudad ?? '').toLowerCase().includes(q)
+    );
   });
 
   function openNew() {
     setEditing(null);
     setForm(EMPTY);
+    setSaveError('');
     setModalOpen(true);
   }
 
   function openEdit(c) {
     setEditing(c);
     setForm({ ...c });
+    setSaveError('');
     setModalOpen(true);
   }
 
@@ -79,21 +84,33 @@ export default function Clientes() {
 
   function handleSave() {
     if (!form.razonSocial.trim() || !form.nit.trim()) return;
-    if (editing) {
-      dispatch({ type: 'UPDATE_CLIENTE', payload: { ...form, id: editing.id } });
-    } else {
-      dispatch({ type: 'ADD_CLIENTE', payload: { ...form, id: nextClienteId(state.clientes) } });
-    }
-    setModalOpen(false);
+    setSaveError('');
+    const mutation = editing
+      ? updateCliente.mutateAsync({ id: editing.id, ...form })
+      : createCliente.mutateAsync(form);
+    mutation
+      .then(() => setModalOpen(false))
+      .catch(err => setSaveError(err.response?.data?.message ?? 'Error al guardar'));
   }
 
   function handleDelete(id) {
-    dispatch({ type: 'DELETE_CLIENTE', payload: id });
+    deleteCliente.mutate(id);
+  }
+
+  const isSaving = createCliente.isPending || updateCliente.isPending;
+
+  if (isLoading) {
+    return (
+      <div className="flex flex-col flex-1">
+        <Header title="Clientes" subtitle="Cargando..." />
+        <div className="flex-1 flex items-center justify-center text-gray-400">Cargando clientes...</div>
+      </div>
+    );
   }
 
   return (
     <div className="flex flex-col flex-1">
-      <Header title="Clientes" subtitle={`${state.clientes.length} clientes registrados`} />
+      <Header title="Clientes" subtitle={`${clientes.length} clientes registrados`} />
 
       <div className="flex-1 p-4 md:p-8 space-y-4">
 
@@ -266,6 +283,10 @@ export default function Clientes() {
           </div>
         </div>
 
+        {saveError && (
+          <p className="mt-3 text-sm text-red-500">{saveError}</p>
+        )}
+
         <div className="flex justify-end gap-3 mt-6 pt-5 border-t border-gray-100">
           <button
             onClick={() => setModalOpen(false)}
@@ -275,10 +296,10 @@ export default function Clientes() {
           </button>
           <button
             onClick={handleSave}
-            disabled={!form.razonSocial.trim() || !form.nit.trim()}
+            disabled={!form.razonSocial.trim() || !form.nit.trim() || isSaving}
             className="px-5 py-2 text-sm font-medium text-white bg-brand-600 rounded-lg hover:bg-brand-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
           >
-            {editing ? 'Guardar cambios' : 'Crear cliente'}
+            {isSaving ? 'Guardando...' : editing ? 'Guardar cambios' : 'Crear cliente'}
           </button>
         </div>
       </Modal>
@@ -287,7 +308,7 @@ export default function Clientes() {
       <ConfirmDialog
         open={!!confirmId}
         onClose={() => setConfirmId(null)}
-        onConfirm={() => handleDelete(confirmId)}
+        onConfirm={() => { handleDelete(confirmId); setConfirmId(null); }}
         title="Eliminar cliente"
         message="Esta acción no se puede deshacer. ¿Deseas eliminar este cliente?"
       />
