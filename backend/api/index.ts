@@ -10,12 +10,13 @@ import { ValidationPipe } from '@nestjs/common';
 import { ExpressAdapter } from '@nestjs/platform-express';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import helmet from 'helmet';
-import * as express from 'express';
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const expressFactory = require('express');
 import { AppModule } from '../src/app.module';
 import { TransformInterceptor } from '../src/common/interceptors/transform.interceptor';
 import { HttpExceptionFilter } from '../src/common/filters/http-exception.filter';
 
-const server = express();
+const server = expressFactory();
 
 let isInitialized = false;
 
