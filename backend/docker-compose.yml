@@ -1,0 +1,45 @@
+version: '3.8'
+
+# ==========================================
+# docker-compose.yml — Solo para desarrollo local
+# En producción usar Coolify (Hetzner VPS)
+# ==========================================
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: indusvit_postgres
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: indusvit_erp
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: devpassword
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: .
+      target: builder
+    container_name: indusvit_backend
+    command: npm run start:dev
+    ports:
+      - "3001:3001"
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql://postgres:devpassword@postgres:5432/indusvit_erp
+    volumes:
+      - .:/app
+      - /app/node_modules
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  pgdata:

@@ -1,0 +1,272 @@
+// ==========================================
+// Prisma Schema — ERP Indusvit
+// PostgreSQL 16
+// ==========================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ==========================================
+// ENUMS
+// ==========================================
+
+enum Role {
+  ADMIN
+  VENTAS
+  PRODUCCION
+}
+
+enum EstadoCotizacion {
+  borrador
+  enviada
+  aprobada
+  rechazada
+}
+
+enum EstadoDian {
+  pendiente
+  aceptada
+  error
+}
+
+enum EstadoPedido {
+  pendiente
+  en_proceso
+  completado
+}
+
+enum EstadoItem {
+  pendiente
+  en_proceso
+  completado
+}
+
+enum Etapa {
+  corte
+  templado
+  despacho
+}
+
+// ==========================================
+// MODELOS
+// ==========================================
+
+model User {
+  id               String   @id @default(uuid())
+  username         String   @unique
+  passwordHash     String
+  nombre           String
+  cargo            String?
+  email            String   @unique
+  telefono         String?
+  role             Role     @default(VENTAS)
+  empresa          String?
+  nitEmpresa       String?
+  direccionEmpresa String?
+  activo           Boolean  @default(true)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@map("users")
+}
+
+model Cliente {
+  id           String  @id  // C001, C002...
+  razonSocial  String
+  nit          String  @unique
+  email        String?
+  telefono     String?
+  ciudad       String?
+  departamento String?
+  direccion    String?
+  contacto     String?
+  regimen      String? // simplificado | comun
+  activo       Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  cotizaciones Cotizacion[]
+  facturas     Factura[]
+  pedidos      Pedido[]
+
+  @@map("clientes")
+}
+
+model Producto {
+  id          String  @id  // P001, P002...
+  codigo      String  @unique
+  nombre      String
+  descripcion String?
+  categoria   String?
+  color       String?
+  espesor     String?
+  unidad      String  @default("m2")
+  precioM2    Float   @default(0)
+  precioPieza Float   @default(0)
+  iva         Int     @default(19)
+  stock       Float   @default(0)
+  activo      Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  cotizacionItems CotizacionItem[]
+  facturaItems    FacturaItem[]
+  pedidoItems     PedidoItem[]
+
+  @@map("productos")
+}
+
+model Cotizacion {
+  id               String           @id  // COT-YYYY-NNN
+  fecha            DateTime         @default(now())
+  vigencia         DateTime?
+  clienteId        String
+  vendedor         String?
+  estado           EstadoCotizacion @default(borrador)
+  condicionesPago  String?
+  plazoEntrega     String?
+  observaciones    String?
+  descuento        Float            @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  cliente  Cliente          @relation(fields: [clienteId], references: [id])
+  items    CotizacionItem[]
+  facturas Factura[]
+
+  @@map("cotizaciones")
+}
+
+model CotizacionItem {
+  id             String  @id @default(uuid())
+  cotizacionId   String
+  productoId     String?
+  descripcion    String
+  ancho          Float?
+  alto           Float?
+  area           Float?
+  cantidad       Float   @default(1)
+  unidad         String  @default("m2")
+  precioUnitario Float   @default(0)
+  descuento      Float   @default(0)
+  iva            Int     @default(19)
+  orden          Int     @default(0)
+
+  cotizacion Cotizacion @relation(fields: [cotizacionId], references: [id], onDelete: Cascade)
+  producto   Producto?  @relation(fields: [productoId], references: [id])
+
+  @@map("cotizacion_items")
+}
+
+model Factura {
+  id                  String     @id  // FAC-YYYY-NNN
+  numero              Int        @unique
+  fecha               DateTime   @default(now())
+  fechaVencimiento    DateTime?
+  clienteId           String
+  cotizacionId        String?
+  vendedor            String?
+  condicionesPago     String?
+  observaciones       String?
+  estadoDian          EstadoDian @default(pendiente)
+  cufe                String?
+  fechaAceptacionDian DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  cliente    Cliente      @relation(fields: [clienteId], references: [id])
+  cotizacion Cotizacion?  @relation(fields: [cotizacionId], references: [id])
+  items      FacturaItem[]
+  pedidos    Pedido[]
+
+  @@map("facturas")
+}
+
+model FacturaItem {
+  id             String  @id @default(uuid())
+  facturaId      String
+  productoId     String?
+  descripcion    String
+  ancho          Float?
+  alto           Float?
+  area           Float?
+  cantidad       Float   @default(1)
+  unidad         String  @default("m2")
+  precioUnitario Float   @default(0)
+  descuento      Float   @default(0)
+  iva            Int     @default(19)
+  orden          Int     @default(0)
+
+  factura  Factura   @relation(fields: [facturaId], references: [id], onDelete: Cascade)
+  producto Producto? @relation(fields: [productoId], references: [id])
+
+  @@map("factura_items")
+}
+
+model Pedido {
+  id                     String       @id  // PF-YYYY-NNN
+  numero                 Int          @unique
+  fecha                  DateTime     @default(now())
+  fechaEntregaEstimada   DateTime?
+  facturaId              String?
+  clienteId              String
+  estado                 EstadoPedido @default(pendiente)
+  responsable            String?
+  observacionesProduccion String?
+  procesos               Json?        // etapas activas, configuración de producción
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  factura Factura?    @relation(fields: [facturaId], references: [id])
+  cliente Cliente     @relation(fields: [clienteId], references: [id])
+  items   PedidoItem[]
+
+  @@map("pedidos")
+}
+
+model PedidoItem {
+  id             String     @id @default(uuid())
+  pedidoId       String
+  productoId     String?
+  descripcion    String
+  cantidad       Float      @default(1)
+  unidad         String     @default("m2")
+  ancho          Float?
+  alto           Float?
+  area           Float?
+  precioUnitario Float      @default(0)
+  iva            Int        @default(19)
+  estadoItem     EstadoItem @default(pendiente)
+  notasTecnicas  String?
+  op             Json?      // orden de producción, datos técnicos adicionales
+
+  pedido   Pedido    @relation(fields: [pedidoId], references: [id], onDelete: Cascade)
+  producto Producto? @relation(fields: [productoId], references: [id])
+  etapas   PedidoItemEtapa[]
+
+  @@map("pedido_items")
+}
+
+model PedidoItemEtapa {
+  id           String   @id @default(uuid())
+  pedidoItemId String
+  etapa        Etapa
+  completado   Boolean  @default(false)
+  fechaFin     DateTime?
+
+  pedidoItem PedidoItem @relation(fields: [pedidoItemId], references: [id], onDelete: Cascade)
+
+  @@unique([pedidoItemId, etapa])
+  @@map("pedido_item_etapas")
+}
